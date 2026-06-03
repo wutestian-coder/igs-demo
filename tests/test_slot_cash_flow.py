@@ -6,7 +6,7 @@ Test Steps:
   2. 切換 bet 至設定金額
   3. 讀取玩家資產（前）
   4. 點擊 SPIN 按鈕進行遊戲
-  5. 等待停輪（動態等待：spin 按鈕恢復可點擊）
+  5. 等待停輪（OpenCV 影像辨識：偵測轉軸畫素差異歸零）
   6. 讀取遊戲贏分與玩家資產（後）
   7. 金流驗證：資產(前) - 押注 + 贏分 == 資產(後)
   重複步驟 3~7 共 N 次
@@ -86,7 +86,7 @@ def run_cash_flow_test() -> list:
                 continue
 
             driver.click_spin()
-            driver.wait_for_spin_complete()
+            driver.wait_for_reel_stop_visual()
 
             rec.win_displayed = driver.read_win()
             rec.bet           = driver.read_current_bet()

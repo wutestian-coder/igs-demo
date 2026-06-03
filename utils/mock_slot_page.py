@@ -43,6 +43,9 @@ class MockSlotPage:
         self._balance += actual
         self._last_win = win
 
+    def wait_for_reel_stop_visual(self):
+        self.wait_for_spin_complete()
+
     def read_win(self) -> int:
         return self._last_win
 

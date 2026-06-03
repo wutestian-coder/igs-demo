@@ -1,18 +1,26 @@
+import time
 import pathlib
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from config.settings import GAME_HTML_PATH, SELENIUM_TIMEOUT
+
+from config.settings import (
+    GAME_HTML_PATH, SELENIUM_TIMEOUT,
+    REEL_STOP_THRESHOLD, REEL_STOP_INTERVAL,
+)
+from utils.image_utils import png_bytes_to_array, is_motion_stopped
 
 
 class SlotGamePage:
 
-    _SPIN_BTN  = (By.ID, "spin-btn")
-    _DATA_BAL  = (By.ID, "data-balance")
-    _DATA_WIN  = (By.ID, "data-last-win")
-    _DATA_BET  = (By.ID, "data-last-bet")
+    _SPIN_BTN        = (By.ID, "spin-btn")
+    _DATA_BAL        = (By.ID, "data-balance")
+    _DATA_WIN        = (By.ID, "data-last-win")
+    _DATA_BET        = (By.ID, "data-last-bet")
+    _REELS_CONTAINER = (By.CLASS_NAME, "reels")
 
     def __init__(self, headless: bool = False):
         opts = Options()
@@ -36,7 +44,7 @@ class SlotGamePage:
         ))
 
     def _read_hidden(self, locator: tuple) -> str:
-        # display:none 的元素 .text 會回傳空字串，需用 textContent
+        # display:none 的元素 .text 回傳空字串，需用 textContent
         el = self.wait.until(EC.presence_of_element_located(locator))
         return el.get_attribute("textContent")
 
@@ -45,6 +53,27 @@ class SlotGamePage:
 
     def click_spin(self):
         self.wait.until(EC.element_to_be_clickable(self._SPIN_BTN)).click()
+
+    def capture_reel_area(self) -> "np.ndarray":
+        el = self.wait.until(EC.presence_of_element_located(self._REELS_CONTAINER))
+        return png_bytes_to_array(el.screenshot_as_png)
+
+    def wait_for_reel_stop_visual(self) -> None:
+        """Confirm reel stop via OpenCV pixel-diff: requires 2 consecutive stable frames."""
+        deadline = time.monotonic() + SELENIUM_TIMEOUT
+        stable   = 0
+        prev     = self.capture_reel_area()
+        while time.monotonic() < deadline:
+            time.sleep(REEL_STOP_INTERVAL)
+            curr = self.capture_reel_area()
+            if is_motion_stopped(prev, curr, REEL_STOP_THRESHOLD):
+                stable += 1
+                if stable >= 2:
+                    return
+            else:
+                stable = 0
+            prev = curr
+        raise TimeoutError(f"轉軸未在 {SELENIUM_TIMEOUT}s 內停止（影像辨識）")
 
     def wait_for_spin_complete(self):
         self.wait.until(EC.element_to_be_clickable(self._SPIN_BTN))
