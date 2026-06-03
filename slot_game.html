@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>Slot Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a0a2e;
+    font-family: 'Courier New', monospace;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; color: #fff;
+  }
+  .machine {
+    background: linear-gradient(145deg, #2d1b4e, #1a0a2e);
+    border: 3px solid #f0c040;
+    border-radius: 20px;
+    padding: 30px;
+    width: 420px;
+    box-shadow: 0 0 40px rgba(240,192,64,0.3);
+  }
+  h1 { text-align: center; color: #f0c040; font-size: 1.6em; margin-bottom: 20px; letter-spacing: 4px; }
+
+  /* Balance */
+  .balance-box {
+    background: #0d0d1a;
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .balance-label { color: #aaa; font-size: 0.85em; }
+  #balance-display {
+    font-size: 1.5em; font-weight: bold; color: #00ff88;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Reels */
+  .reels {
+    display: flex; gap: 10px; justify-content: center;
+    margin: 20px 0;
+    background: #0d0d1a;
+    border: 2px solid #444;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .reel {
+    width: 80px; height: 80px;
+    background: #1a1a2e;
+    border: 2px solid #555;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.4em;
+    transition: all 0.1s;
+  }
+  .reel.spinning { animation: spin 0.1s linear infinite; }
+  @keyframes spin { 0%{transform:scaleY(1)} 50%{transform:scaleY(0)} 100%{transform:scaleY(1)} }
+
+  /* Win display */
+  .win-box {
+    text-align: center;
+    min-height: 36px;
+    margin-bottom: 12px;
+  }
+  #win-display {
+    font-size: 1.2em; font-weight: bold;
+    color: #f0c040;
+    display: none;
+  }
+  #result-message {
+    font-size: 0.9em;
+    color: #aaa;
+  }
+
+  /* Bet selector */
+  .bet-section {
+    margin-bottom: 16px;
+  }
+  .bet-section label { color: #aaa; font-size: 0.85em; display: block; margin-bottom: 6px; }
+  .bet-buttons { display: flex; gap: 8px; }
+  .bet-btn {
+    flex: 1;
+    padding: 8px 0;
+    background: #2d1b4e;
+    border: 2px solid #555;
+    border-radius: 6px;
+    color: #ccc;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9em;
+    transition: all 0.2s;
+  }
+  .bet-btn:hover { border-color: #f0c040; color: #f0c040; }
+  .bet-btn.active {
+    background: #f0c040;
+    color: #1a0a2e;
+    border-color: #f0c040;
+    font-weight: bold;
+  }
+
+  /* Spin button */
+  #spin-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #f0c040, #e09020);
+    border: none;
+    border-radius: 10px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #1a0a2e;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 3px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(240,192,64,0.4);
+  }
+  #spin-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(240,192,64,0.6); }
+  #spin-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Hidden data for Selenium */
+  #data-balance { display: none; }
+  #data-last-win { display: none; }
+  #data-last-bet { display: none; }
+  #data-spin-count { display: none; }
+  #data-game-state { display: none; }  /* idle / spinning / done */
+</style>
+</head>
+<body>
+<div class="machine">
+  <h1>🎰 SLOT 🎰</h1>
+
+  <div class="balance-box">
+    <span class="balance-label">玩家資產</span>
+    <span id="balance-display">1000</span>
+  </div>
+
+  <div class="reels">
+    <div class="reel" id="reel-0">🍒</div>
+    <div class="reel" id="reel-1">🍋</div>
+    <div class="reel" id="reel-2">⭐</div>
+  </div>
+
+  <div class="win-box">
+    <div id="win-display"></div>
+    <div id="result-message">選擇押注金額並按 SPIN</div>
+  </div>
+
+  <div class="bet-section">
+    <label>押注金額</label>
+    <div class="bet-buttons">
+      <button class="bet-btn active" data-bet="10" onclick="setBet(10)">10</button>
+      <button class="bet-btn" data-bet="20" onclick="setBet(20)">20</button>
+      <button class="bet-btn" data-bet="50" onclick="setBet(50)">50</button>
+      <button class="bet-btn" data-bet="100" onclick="setBet(100)">100</button>
+    </div>
+  </div>
+
+  <button id="spin-btn" onclick="spin()">SPIN</button>
+
+  <!-- Hidden fields for Selenium to read -->
+  <span id="data-balance">1000</span>
+  <span id="data-last-win">0</span>
+  <span id="data-last-bet">10</span>
+  <span id="data-spin-count">0</span>
+  <span id="data-game-state">idle</span>
+</div>
+
+<script>
+const SYMBOLS = ["🍒","🍋","🍊","⭐","💎","7️⃣"];
+const PAYTABLE = {
+  "💎💎💎": 50, "7️⃣7️⃣7️⃣": 30, "⭐⭐⭐": 20,
+  "🍊🍊🍊": 10, "🍋🍋🍋": 8,  "🍒🍒🍒": 5,
+};
+
+let balance = 1000;
+let currentBet = 10;
+let spinCount = 0;
+
+// 注入一個 bug：每第 7 次 spin，贏分入帳只給一半（供測試發現）
+let INJECT_BUG = true;
+
+function setBet(amount) {
+  currentBet = amount;
+  document.querySelectorAll('.bet-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.bet) === amount);
+  });
+  document.getElementById('data-last-bet').textContent = amount;
+}
+
+function calcWin(reels) {
+  const key = reels.join('');
+  if (PAYTABLE[key]) return PAYTABLE[key] * currentBet / 10;
+  if (reels[0] === '🍒' && reels[1] === '🍒') return 2 * currentBet / 10;
+  return 0;
+}
+
+function spin() {
+  if (balance < currentBet) {
+    document.getElementById('result-message').textContent = '餘額不足！';
+    return;
+  }
+
+  const btn = document.getElementById('spin-btn');
+  btn.disabled = true;
+  document.getElementById('data-game-state').textContent = 'spinning';
+
+  const reelEls = [0,1,2].map(i => document.getElementById(`reel-${i}`));
+  reelEls.forEach(r => r.classList.add('spinning'));
+
+  document.getElementById('win-display').style.display = 'none';
+  document.getElementById('result-message').textContent = '轉動中...';
+
+  // 扣押注
+  balance -= currentBet;
+  updateBalanceDisplay();
+
+  setTimeout(() => {
+    const result = [0,1,2].map(() => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+    let win = calcWin(result);
+
+    spinCount++;
+
+    // 注入 Bug：第 7 次只入帳一半贏分
+    let actualCredit = win;
+    if (INJECT_BUG && spinCount === 7 && win > 0) {
+      actualCredit = Math.floor(win / 2);
+    }
+
+    balance += actualCredit;
+
+    reelEls.forEach((r, i) => {
+      r.classList.remove('spinning');
+      r.textContent = result[i];
+    });
+
+    updateBalanceDisplay();
+
+    // 更新 hidden data fields（Selenium 讀取用）
+    document.getElementById('data-last-win').textContent = win;   // 顯示的贏分
+    document.getElementById('data-spin-count').textContent = spinCount;
+    document.getElementById('data-game-state').textContent = 'done';
+
+    if (win > 0) {
+      document.getElementById('win-display').textContent = `🎉 贏得 ${win} 分！`;
+      document.getElementById('win-display').style.display = 'block';
+      document.getElementById('result-message').textContent = result.join(' ');
+    } else {
+      document.getElementById('win-display').style.display = 'none';
+      document.getElementById('result-message').textContent = result.join(' ') + '　未中獎';
+    }
+
+    btn.disabled = false;
+  }, 800);
+}
+
+function updateBalanceDisplay() {
+  document.getElementById('balance-display').textContent = balance;
+  document.getElementById('data-balance').textContent = balance;
+}
+</script>
+</body>
+</html>
