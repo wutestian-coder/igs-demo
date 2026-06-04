@@ -1,4 +1,5 @@
 {
   "bet_amount": 20,
-  "total_rounds": 10
+  "total_rounds": 10,
+  "ws_url": ""
 }
